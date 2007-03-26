@@ -110,6 +110,14 @@ seq_event_input(VALUE self)
 }
 
 static VALUE
+seq_event_input_pending(VALUE self, VALUE fetch_sequencer)
+{
+    snd_seq_t **seq;
+    Data_Get_Struct(self, snd_seq_t *, seq);
+    return INT2NUM(snd_seq_event_input_pending(*seq, NUM2INT(fetch_sequencer)));
+}
+
+static VALUE
 seq_nonblock(VALUE self, VALUE flag)
 {
     snd_seq_t **seq;
@@ -572,7 +580,7 @@ Init__asound(void)
     c_seq = rb_define_class_under(m_seq, "Seq", rb_cObject);
     rb_define_alloc_func(c_seq, seq_allocate);
     rb_define_method(c_seq, "client_name=", seq_set_client_name, 1);
-    rb_define_method(c_seq, "nonblock=", seq_nonblock, 1);
+    rb_define_method(c_seq, "nonblocking=", seq_nonblock, 1);
     rb_define_method(c_seq, "_create_simple_port", seq_create_simple_port, 3);
     rb_define_method(c_seq, "connect_from", seq_connect_from, 3);
     rb_define_method(c_seq, "connect_to", seq_connect_to, 3);
@@ -581,6 +589,7 @@ Init__asound(void)
     rb_define_method(c_seq, "drain_output", seq_drain_output, 0);
     rb_define_method(c_seq, "drop_output", seq_drop_output, 0);
     rb_define_method(c_seq, "event_input", seq_event_input, 0);
+    rb_define_method(c_seq, "event_input_pending", seq_event_input_pending, 1);
     rb_define_method(c_seq, "_alloc_queue", seq_alloc_queue, 0);
     rb_define_method(c_seq, "change_queue_ppq", seq_change_queue_ppq, 2);
     rb_define_method(c_seq, "_change_queue_tempo", seq_change_queue_tempo, 3);

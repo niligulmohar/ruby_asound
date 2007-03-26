@@ -51,6 +51,9 @@ module Snd::Seq
         end
       end
     end
+    def input_pending?
+      event_input_pending(0)
+    end
   end
   class Queue
     def initialize(seq, n)
@@ -91,7 +94,7 @@ module Snd::Seq
       type == Snd::Seq::EVENT_CLOCK
     end
     def identity_response?
-      sysex? and variable_data =~ /\x7e.\x06\x02.........\xf7/
+      sysex? and variable_data =~ /^\xf0\x7e.\x06\x02.........\xf7$/
     end
     def sysex_channel
       fail unless sysex?
@@ -105,6 +108,9 @@ module Snd::Seq
       port_info.client = source[0]
       port_info.port = source[1]
       return port_info
+    end
+    def source_ids
+      "[#{source[0]}:#{source[1]}]"
     end
   end
   class PortInfo
@@ -161,12 +167,15 @@ module Snd::Seq
         @seq.connect_from(@port_info.port, *arg)
       end
     end
-    def output_event!(event_param = nil)
+    def event_output!(event_param = nil)
       event = event_param || Event.new
       yield event if block_given?
       event.to_port_subscribers!
-      @seq.output_event(event)
+      @seq.event_output(event)
       @seq.drain_output
+    end
+    def ids
+      "[#{@port_info.client}:#{@port_info.port}]"
     end
   end
   class DestinationPort
@@ -177,12 +186,12 @@ module Snd::Seq
     def method_missing(sym, *args)
       @port.send(sym, *args)
     end
-    def output_event!(event_param = nil)
+    def event_output!(event_param = nil)
       event = event_param || Event.new
       yield event if block_given?
       event.destination = [@port.client, @port.port]
       event.source = [@source_port.client, @source_port.port]
-      @seq.output_event(event)
+      @seq.event_output(event)
       @seq.drain_output
     end
     def ids
