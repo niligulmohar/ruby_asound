@@ -1,3 +1,4 @@
+require 'forwardable'
 require '_asound'
 
 module Snd::Seq
@@ -12,7 +13,9 @@ module Snd::Seq
       @client_id = client_info.client
     end
     def create_simple_port(name, caps, type)
-      Port.new(self, _create_simple_port(name, caps, type))
+      port_info = PortInfo.new
+      port_info.port = _create_simple_port(name, caps, type)
+      Port.new(self, port_info)
     end
     def alloc_queue
       Queue.new(self, _alloc_queue)
@@ -44,34 +47,8 @@ module Snd::Seq
         port_info.client = client_info.client
         port_info.port = -1
         while (0 == query_next_port(port_info))
-          yield port_info
+          yield Port.new(self, port_info.clone)
         end
-      end
-    end
-  end
-  class Port
-    def initialize(seq, port_info_or_n)
-      @seq = seq
-      if port_info_or_n.kind_of?(PortInfo)
-        @port_info = port_info_or_n
-        @n = @port_info_or_n.port
-      else
-        @n = port_info_or_n
-      end
-    end
-    def to_int() @n; end
-    def connect_to(arg)
-      if arg.kind_of?(PortInfo)
-        @seq.connect_to(@n, arg.client, arg.port)
-      else
-        @seq.connect_to(@n, *arg)
-      end
-    end
-    def connect_from(arg)
-      if arg.kind_of?(PortInfo)
-        @seq.connect_from(@n, arg.client, arg.port)
-      else
-        @seq.connect_from(@n, *arg)
       end
     end
   end
@@ -123,9 +100,21 @@ module Snd::Seq
     def destination=(arg)
       set_dest(*arg)
     end
+    def source_info
+      port_info = PortInfo.new
+      port_info.client = source[0]
+      port_info.port = source[1]
+      return port_info
+    end
   end
   class PortInfo
     alias_method :capabilities, :capability
+    alias_method :to_int, :port
+    def clone
+      copy = super
+      copy.copy_from(self)
+      return copy
+    end
     def midi?
       type & PORT_TYPE_MIDI_GENERIC != 0
     end
@@ -140,6 +129,64 @@ module Snd::Seq
     end
     def write_subscribable?
       capabilities & PORT_CAP_SUBS_WRITE != 0
+    end
+  end
+  class Port
+    attr_reader :seq, :port_info
+    def initialize(seq, port_info)
+      @seq = seq
+      @port_info = port_info
+    end
+    def method_missing(sym, *args)
+      @port_info.send(sym, *args)
+    end
+    def to_int
+      @port_info.port
+    end
+    def connect_to(arg)
+      if arg.kind_of?(PortInfo)
+        @seq.connect_to(@port_info.port, arg.client, arg.port)
+      elsif arg.kind_of?(Port)
+        connect_to(arg.port_info)
+      else
+        @seq.connect_to(@port_info.port, *arg)
+      end
+    end
+    def connect_from(arg)
+      if arg.kind_of?(PortInfo)
+        @seq.connect_from(@port_info.port, arg.client, arg.port)
+      elsif arg.kind_of?(Port)
+        connect_from(arg.port_info)
+      else
+        @seq.connect_from(@port_info.port, *arg)
+      end
+    end
+    def output_event!(event_param = nil)
+      event = event_param || Event.new
+      yield event if block_given?
+      event.to_port_subscribers!
+      @seq.output_event(event)
+      @seq.drain_output
+    end
+  end
+  class DestinationPort
+    def initialize(port, source_port)
+      @port = port
+      @source_port = source_port
+    end
+    def method_missing(sym, *args)
+      @port.send(sym, *args)
+    end
+    def output_event!(event_param = nil)
+      event = event_param || Event.new
+      yield event if block_given?
+      event.destination = [@port.client, @port.port]
+      event.source = [@source_port.client, @source_port.port]
+      @seq.output_event(event)
+      @seq.drain_output
+    end
+    def ids
+      "[#{@port.client}:#{@port.port}]"
     end
   end
 end

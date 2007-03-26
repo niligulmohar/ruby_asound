@@ -536,6 +536,17 @@ port_info_get_type(VALUE self)
     return INT2NUM(snd_seq_port_info_get_type(port_info));
 }
 
+static VALUE
+port_info_copy_from(VALUE self, VALUE other)
+{
+    snd_seq_port_info_t *port_info;
+    snd_seq_port_info_t *other_port_info;
+    Data_Get_Struct(self, snd_seq_port_info_t, port_info);
+    Data_Get_Struct(other, snd_seq_port_info_t, other_port_info);
+    snd_seq_port_info_copy(port_info, other_port_info);
+    return Qnil;
+}
+
 void
 Init__asound(void)
 {
@@ -618,4 +629,5 @@ Init__asound(void)
     rb_define_method(c_port_info, "name", port_info_get_name, 0);
     rb_define_method(c_port_info, "capability", port_info_get_capability, 0);
     rb_define_method(c_port_info, "type", port_info_get_type, 0);
+    rb_define_method(c_port_info, "copy_from", port_info_copy_from, 1);
 }
