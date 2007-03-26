@@ -2,7 +2,7 @@
 #include <alsa/asoundlib.h>
 
 static VALUE m_snd, m_seq;
-static VALUE c_seq, c_event;
+static VALUE c_seq, c_event, c_client_info, c_port_info;
 
 static VALUE
 seq_allocate(VALUE klass)
@@ -209,6 +209,36 @@ seq_queue_get_tick_time(VALUE self, VALUE queue)
 }
 
 static VALUE
+seq_get_client_info(VALUE self, VALUE client_info_param)
+{
+    snd_seq_t **seq;
+    snd_seq_client_info_t *client_info;
+    Data_Get_Struct(self, snd_seq_t *, seq);
+    Data_Get_Struct(client_info_param, snd_seq_client_info_t, client_info);
+    return INT2NUM(snd_seq_get_client_info(*seq, client_info));
+}
+
+static VALUE
+seq_query_next_client(VALUE self, VALUE client_info_param)
+{
+    snd_seq_t **seq;
+    snd_seq_client_info_t *client_info;
+    Data_Get_Struct(self, snd_seq_t *, seq);
+    Data_Get_Struct(client_info_param, snd_seq_client_info_t, client_info);
+    return INT2NUM(snd_seq_query_next_client(*seq, client_info));
+}
+
+static VALUE
+seq_query_next_port(VALUE self, VALUE port_info_param)
+{
+    snd_seq_t **seq;
+    snd_seq_port_info_t *port_info;
+    Data_Get_Struct(self, snd_seq_t *, seq);
+    Data_Get_Struct(port_info_param, snd_seq_port_info_t, port_info);
+    return INT2NUM(snd_seq_query_next_port(*seq, port_info));
+}
+
+static VALUE
 ev_allocate(VALUE klass)
 {
     VALUE result;
@@ -362,6 +392,150 @@ ev_get_type(VALUE self)
     return INT2NUM(ev->type);
 }
 
+static VALUE
+ev_get_source(VALUE self)
+{
+    snd_seq_event_t *ev;
+    VALUE result;
+    Data_Get_Struct(self, snd_seq_event_t, ev);
+    result = rb_ary_new();
+    rb_ary_push(result, INT2NUM(ev->source.client));
+    rb_ary_push(result, INT2NUM(ev->source.port));
+    return result;
+}
+
+static VALUE
+ev_get_dest(VALUE self)
+{
+    snd_seq_event_t *ev;
+    VALUE result;
+    Data_Get_Struct(self, snd_seq_event_t, ev);
+    result = rb_ary_new();
+    rb_ary_push(result, INT2NUM(ev->dest.client));
+    rb_ary_push(result, INT2NUM(ev->dest.port));
+    return result;
+}
+
+static VALUE
+ev_set_dest(VALUE self, VALUE client, VALUE port)
+{
+    snd_seq_event_t *ev;
+    Data_Get_Struct(self, snd_seq_event_t, ev);
+    snd_seq_ev_set_dest(ev, NUM2INT(client), NUM2INT(port));
+    return Qnil;
+}
+
+static VALUE
+client_info_allocate(VALUE klass)
+{
+    snd_seq_client_info_t *client_info;
+    int malloc_result;
+    malloc_result = snd_seq_client_info_malloc(&client_info);
+    if (malloc_result) {
+	return Qnil;
+    }
+    else {
+	return Data_Wrap_Struct(klass, 0, free, client_info);
+    }
+}
+
+static VALUE
+client_info_get_client(VALUE self)
+{
+    snd_seq_client_info_t *client_info;
+    Data_Get_Struct(self, snd_seq_client_info_t, client_info);
+    return INT2NUM(snd_seq_client_info_get_client(client_info));
+}
+
+static VALUE
+client_info_set_client(VALUE self, VALUE client)
+{
+    snd_seq_client_info_t *client_info;
+    Data_Get_Struct(self, snd_seq_client_info_t, client_info);
+    snd_seq_client_info_set_client(client_info, NUM2INT(client));
+    return Qnil;
+}
+
+static VALUE
+client_info_get_name(VALUE self)
+{
+    snd_seq_client_info_t *client_info;
+    Data_Get_Struct(self, snd_seq_client_info_t, client_info);
+    return rb_str_new2(snd_seq_client_info_get_name(client_info));
+}
+
+static VALUE
+port_info_allocate(VALUE klass)
+{
+    snd_seq_port_info_t *port_info;
+    int malloc_result;
+    malloc_result = snd_seq_port_info_malloc(&port_info);
+    if (malloc_result) {
+	return Qnil;
+    }
+    else {
+	return Data_Wrap_Struct(klass, 0, free, port_info);
+    }
+}
+
+static VALUE
+port_info_get_client(VALUE self)
+{
+    snd_seq_port_info_t *port_info;
+    Data_Get_Struct(self, snd_seq_port_info_t, port_info);
+    return INT2NUM(snd_seq_port_info_get_client(port_info));
+}
+
+static VALUE
+port_info_set_client(VALUE self, VALUE client)
+{
+    snd_seq_port_info_t *port_info;
+    Data_Get_Struct(self, snd_seq_port_info_t, port_info);
+    snd_seq_port_info_set_client(port_info, NUM2INT(client));
+    return Qnil;
+}
+
+static VALUE
+port_info_get_port(VALUE self)
+{
+    snd_seq_port_info_t *port_info;
+    Data_Get_Struct(self, snd_seq_port_info_t, port_info);
+    return INT2NUM(snd_seq_port_info_get_port(port_info));
+}
+
+static VALUE
+port_info_set_port(VALUE self, VALUE port)
+{
+    snd_seq_port_info_t *port_info;
+    Data_Get_Struct(self, snd_seq_port_info_t, port_info);
+    snd_seq_port_info_set_port(port_info, NUM2INT(port));
+    return Qnil;
+}
+
+static VALUE
+port_info_get_name(VALUE self)
+{
+    snd_seq_port_info_t *port_info;
+    Data_Get_Struct(self, snd_seq_port_info_t, port_info);
+    return rb_str_new2(snd_seq_port_info_get_name(port_info));
+}
+
+static VALUE
+port_info_get_capability(VALUE self)
+{
+    snd_seq_port_info_t *port_info;
+    Data_Get_Struct(self, snd_seq_port_info_t, port_info);
+    return INT2NUM(snd_seq_port_info_get_capability(port_info));
+}
+
+static VALUE
+port_info_get_type(VALUE self)
+{
+    snd_seq_port_info_t *port_info;
+    Data_Get_Struct(self, snd_seq_port_info_t, port_info);
+    return INT2NUM(snd_seq_port_info_get_type(port_info));
+}
+
 void
 Init__asound(void)
 {
@@ -369,10 +543,14 @@ Init__asound(void)
     m_seq = rb_define_module_under(m_snd, "Seq");
 
 #define CONST(name) rb_define_const(m_seq, #name, INT2NUM(SND_SEQ_##name))
-    CONST( PORT_CAP_WRITE );
-    CONST( PORT_CAP_SUBS_WRITE );
     CONST( PORT_CAP_READ );
+    CONST( PORT_CAP_WRITE );
+    CONST( PORT_CAP_SYNC_READ );
+    CONST( PORT_CAP_SYNC_WRITE );
+    CONST( PORT_CAP_DUPLEX );
     CONST( PORT_CAP_SUBS_READ );
+    CONST( PORT_CAP_SUBS_WRITE );
+    CONST( PORT_CAP_NO_EXPORT );
     CONST( PORT_TYPE_MIDI_GENERIC );
     CONST( EVENT_NOTEON );
     CONST( EVENT_NOTEOFF );
@@ -399,6 +577,9 @@ Init__asound(void)
     rb_define_method(c_seq, "_stop_queue", seq_stop_queue, 2);
     rb_define_method(c_seq, "_continue_queue", seq_continue_queue, 2);
     rb_define_method(c_seq, "queue_get_tick_time", seq_queue_get_tick_time, 1);
+    rb_define_method(c_seq, "get_client_info", seq_get_client_info, 1);
+    rb_define_method(c_seq, "query_next_client", seq_query_next_client, 1);
+    rb_define_method(c_seq, "query_next_port", seq_query_next_port, 1);
 
     c_event = rb_define_class_under(m_seq, "Event", rb_cObject);
     rb_define_alloc_func(c_event, ev_allocate);
@@ -415,7 +596,26 @@ Init__asound(void)
     rb_define_method(c_event, "set_pgmchange", ev_set_pgmchange, 2);
     rb_define_method(c_event, "set_pitchbend", ev_set_pitchbend, 2);
     rb_define_method(c_event, "set_sysex", ev_set_sysex, 1);
-    rb_define_method(c_event, "get_variable", ev_get_variable, 0);
+    rb_define_method(c_event, "variable", ev_get_variable, 0);
     rb_define_method(c_event, "schedule_tick", ev_schedule_tick, 3);
-    rb_define_method(c_event, "get_type", ev_get_type, 0);
+    rb_define_method(c_event, "type", ev_get_type, 0);
+    rb_define_method(c_event, "source", ev_get_source, 0);
+    rb_define_method(c_event, "dest", ev_get_dest, 0);
+    rb_define_method(c_event, "set_dest", ev_set_dest, 2);
+
+    c_client_info = rb_define_class_under(m_seq, "ClientInfo", rb_cObject);
+    rb_define_alloc_func(c_client_info, client_info_allocate);
+    rb_define_method(c_client_info, "client", client_info_get_client, 0);
+    rb_define_method(c_client_info, "client=", client_info_set_client, 1);
+    rb_define_method(c_client_info, "name", client_info_get_name, 0);
+
+    c_port_info = rb_define_class_under(m_seq, "PortInfo", rb_cObject);
+    rb_define_alloc_func(c_port_info, port_info_allocate);
+    rb_define_method(c_port_info, "client", port_info_get_client, 0);
+    rb_define_method(c_port_info, "client=", port_info_set_client, 1);
+    rb_define_method(c_port_info, "port", port_info_get_port, 0);
+    rb_define_method(c_port_info, "port=", port_info_set_port, 1);
+    rb_define_method(c_port_info, "name", port_info_get_name, 0);
+    rb_define_method(c_port_info, "capability", port_info_get_capability, 0);
+    rb_define_method(c_port_info, "type", port_info_get_type, 0);
 }

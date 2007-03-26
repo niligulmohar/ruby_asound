@@ -11,7 +11,7 @@ class AlsaTestCase < Test::Unit::TestCase
     p = @seq.create_simple_port('Test port',
                                 Snd::Seq::PORT_CAP_READ | Snd::Seq::PORT_CAP_SUBS_READ,
                                 Snd::Seq::PORT_TYPE_MIDI_GENERIC)
-    p.connect_to(129, 0)
+    p.connect_to([129, 0])
 
     q = @seq.alloc_queue
     q.ppq = 960
@@ -37,7 +37,7 @@ class AlsaTestCase < Test::Unit::TestCase
     @seq.drain_output
 
     start = q.tick_time
-    sleep_time = sleep(3)
+    assert_equal(3, sleep(3))
     stop = q.tick_time
 
     q.stop
@@ -48,12 +48,12 @@ class AlsaTestCase < Test::Unit::TestCase
     q.stop
     q.start
     @seq.drain_output
+    assert_equal(1, sleep(1))
     restart = q.tick_time
 
-    assert_equal(0, start)
-    assert_equal(3, sleep_time)
-    assert_equal(5758, stop)
-    assert_equal(5758, continue)
-    assert_equal(0, restart)
+    assert_in_delta(0, start, 2)
+    assert_in_delta(5760, stop, 2)
+    assert_in_delta(5760, continue, 2)
+    assert_in_delta(1920, restart, 2)
   end
 end
