@@ -87,12 +87,16 @@ module Snd::Seq
     alias_method :variable_data, :variable
     alias_method :to_port_subscribers!, :set_subs
     alias_method :direct!, :set_direct
-    def sysex?
-      type == Snd::Seq::EVENT_SYSEX
+
+    def self.def_type_checks(*name_syms)
+      name_syms.each do |name_sym|
+        name = name_sym.to_s
+        class_eval("def #{name}?() type == Snd::Seq::EVENT_#{name.upcase} end")
+      end
     end
-    def clock?
-      type == Snd::Seq::EVENT_CLOCK
-    end
+    def_type_checks :sysex, :clock, :noteon, :noteoff, :keypress, :controller
+    def_type_checks :pgmchange, :chanpress, :pitchbend
+
     def identity_response?
       sysex? and variable_data =~ /^\xf0\x7e.\x06\x02.........\xf7$/
     end
@@ -111,6 +115,25 @@ module Snd::Seq
     end
     def source_ids
       "[#{source[0]}:#{source[1]}]"
+    end
+    def to_s
+      if sysex?
+        'System exclusive'
+      elsif noteon?
+        'Note on'
+      elsif noteoff?
+        'Note off'
+      elsif keypress?
+        'Key aftertouch'
+      elsif controller?
+        'Continuous controller'
+      elsif pgmchange?
+        'Program change'
+      elsif chanpress?
+        'Channel aftertouch'
+      elsif pitchbend?
+        'Pitch bend'
+      end
     end
   end
   class PortInfo
