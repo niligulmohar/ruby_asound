@@ -582,7 +582,7 @@ Init__asound(void)
     CONST( EVENT_SYSEX );
 #undef CONST
 
-    c_seq = rb_define_class_under(m_seq, "Seq", rb_cObject);
+    c_seq = rb_define_class_under(m_seq, "SequencerClient", rb_cObject);
     rb_define_alloc_func(c_seq, seq_allocate);
     rb_define_method(c_seq, "client_name=", seq_set_client_name, 1);
     rb_define_method(c_seq, "nonblocking=", seq_nonblock, 1);

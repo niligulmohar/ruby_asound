@@ -4,10 +4,11 @@ require '_asound'
 module Snd::Seq
   class << self
     def open
-      Snd::Seq::Seq.new
+      Snd::Seq::SequencerClient.new
     end
   end
-  class Seq
+
+  class SequencerClient
     attr_reader :client_id
     def initialize
       @client_id = client_info.client
@@ -55,6 +56,7 @@ module Snd::Seq
       event_input_pending(0)
     end
   end
+
   class Queue
     def initialize(seq, n)
       @seq = seq
@@ -83,6 +85,7 @@ module Snd::Seq
       @seq.queue_get_tick_time(@n)
     end
   end
+
   class Event
     alias_method :variable_data, :variable
     alias_method :to_port_subscribers!, :set_subs
@@ -136,6 +139,7 @@ module Snd::Seq
       end
     end
   end
+
   class PortInfo
     alias_method :capabilities, :capability
     alias_method :to_int, :port
@@ -160,6 +164,9 @@ module Snd::Seq
       capabilities & PORT_CAP_SUBS_WRITE != 0
     end
   end
+
+  # A Port object is a PortInfo belonging to a certain
+  # SequencerClient. Can output Events with itself as source.
   class Port
     attr_reader :seq, :port_info
     def initialize(seq, port_info)
@@ -193,6 +200,7 @@ module Snd::Seq
     def event_output!(event_param = nil)
       event = event_param || Event.new
       yield event if block_given?
+      event.source = port
       event.to_port_subscribers!
       @seq.event_output(event)
       @seq.drain_output
@@ -201,6 +209,9 @@ module Snd::Seq
       "[#{@port_info.client}:#{@port_info.port}]"
     end
   end
+
+  # A DestinationPort represents a port you want to send events to,
+  # and contains a reference to the port you want to use as a source.
   class DestinationPort
     def initialize(port, source_port)
       @port = port
@@ -213,9 +224,9 @@ module Snd::Seq
       event = event_param || Event.new
       yield event if block_given?
       event.destination = [@port.client, @port.port]
-      event.source = [@source_port.client, @source_port.port]
-      @seq.event_output(event)
-      @seq.drain_output
+      event.source = @source_port.port
+      @port.seq.event_output(event)
+      @port.seq.drain_output
     end
     def ids
       "[#{@port.client}:#{@port.port}]"
