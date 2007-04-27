@@ -2,7 +2,14 @@
 #include <alsa/asoundlib.h>
 
 static VALUE m_snd, m_seq;
-static VALUE c_seq, c_event, c_client_info, c_port_info;
+static VALUE c_seq, c_event, c_client_info, c_port_info, c_midi_event;
+
+/*  ____              */
+/* / ___|  ___  __ _  */
+/* \___ \ / _ \/ _` | */
+/*  ___) |  __/ (_| | */
+/* |____/ \___|\__, | */
+/*                |_| */
 
 static VALUE
 seq_allocate(VALUE klass)
@@ -246,6 +253,12 @@ seq_query_next_port(VALUE self, VALUE port_info_param)
     return INT2NUM(snd_seq_query_next_port(*seq, port_info));
 }
 
+/*  _____                 _    */
+/* | ____|_   _____ _ __ | |_  */
+/* |  _| \ \ / / _ \ '_ \| __| */
+/* | |___ \ V /  __/ | | | |_  */
+/* |_____| \_/ \___|_| |_|\__| */
+
 static VALUE
 ev_allocate(VALUE klass)
 {
@@ -434,6 +447,69 @@ ev_set_dest(VALUE self, VALUE client, VALUE port)
 }
 
 static VALUE
+ev_tick_time(VALUE self)
+{
+    snd_seq_event_t *ev;
+    Data_Get_Struct(self, snd_seq_event_t, ev);
+    return INT2NUM(ev->time.tick);
+}
+
+static VALUE
+ev_set_tick_time(VALUE self, VALUE tick)
+{
+    snd_seq_event_t *ev;
+    Data_Get_Struct(self, snd_seq_event_t, ev);
+    ev->time.tick = NUM2INT(tick);
+    return Qnil;
+}
+
+static VALUE
+ev_channel(VALUE self)
+{
+    snd_seq_event_t *ev;
+    Data_Get_Struct(self, snd_seq_event_t, ev);
+    return INT2NUM(ev->data.note.channel);
+}
+
+static VALUE
+ev_note(VALUE self)
+{
+    snd_seq_event_t *ev;
+    Data_Get_Struct(self, snd_seq_event_t, ev);
+    return INT2NUM(ev->data.note.note);
+}
+
+static VALUE
+ev_velocity(VALUE self)
+{
+    snd_seq_event_t *ev;
+    Data_Get_Struct(self, snd_seq_event_t, ev);
+    return INT2NUM(ev->data.note.velocity);
+}
+
+static VALUE
+ev_param(VALUE self)
+{
+    snd_seq_event_t *ev;
+    Data_Get_Struct(self, snd_seq_event_t, ev);
+    return INT2NUM(ev->data.control.param);
+}
+
+static VALUE
+ev_value(VALUE self)
+{
+    snd_seq_event_t *ev;
+    Data_Get_Struct(self, snd_seq_event_t, ev);
+    return INT2NUM(ev->data.control.value);
+}
+
+/*   ____ _ _            _   ___        __        */
+/*  / ___| (_) ___ _ __ | |_|_ _|_ __  / _| ___   */
+/* | |   | | |/ _ \ '_ \| __|| || '_ \| |_ / _ \  */
+/* | |___| | |  __/ | | | |_ | || | | |  _| (_) | */
+/*  \____|_|_|\___|_| |_|\__|___|_| |_|_|  \___/  */
+
+static VALUE
 client_info_allocate(VALUE klass)
 {
     snd_seq_client_info_t *client_info;
@@ -471,6 +547,12 @@ client_info_get_name(VALUE self)
     Data_Get_Struct(self, snd_seq_client_info_t, client_info);
     return rb_str_new2(snd_seq_client_info_get_name(client_info));
 }
+
+/*  ____            _   ___        __        */
+/* |  _ \ ___  _ __| |_|_ _|_ __  / _| ___   */
+/* | |_) / _ \| '__| __|| || '_ \| |_ / _ \  */
+/* |  __/ (_) | |  | |_ | || | | |  _| (_) | */
+/* |_|   \___/|_|   \__|___|_| |_|_|  \___/  */
 
 static VALUE
 port_info_allocate(VALUE klass)
@@ -555,6 +637,75 @@ port_info_copy_from(VALUE self, VALUE other)
     return Qnil;
 }
 
+/*  __  __ _     _ _ _____                 _    */
+/* |  \/  (_) __| (_) ____|_   _____ _ __ | |_  */
+/* | |\/| | |/ _` | |  _| \ \ / / _ \ '_ \| __| */
+/* | |  | | | (_| | | |___ \ V /  __/ | | | |_  */
+/* |_|  |_|_|\__,_|_|_____| \_/ \___|_| |_|\__| */
+
+void
+midi_event_free(snd_midi_event_t **dev)
+{
+    snd_midi_event_free(*dev);
+    free(dev);
+}
+
+static VALUE
+midi_event_allocate(VALUE klass)
+{
+    VALUE result;
+    snd_midi_event_t **midi_event;
+    result = Data_Make_Struct(klass, snd_midi_event_t *, 0, midi_event_free, midi_event);
+    snd_midi_event_new(512, midi_event);
+    return result;
+}
+
+static VALUE
+midi_event_encode(VALUE self, VALUE str, VALUE event)
+{
+    snd_midi_event_t **dev;
+    snd_seq_event_t *ev;
+    long count;
+    char *buf;
+    Data_Get_Struct(self, snd_midi_event_t *, dev);
+    Data_Get_Struct(event, snd_seq_event_t, ev);
+    buf = rb_str2cstr(str, &count);
+    return INT2NUM(snd_midi_event_encode(*dev, (const unsigned char *)buf, count, ev));
+}
+
+static VALUE
+midi_event_decode(VALUE self, VALUE event)
+{
+    snd_midi_event_t **dev;
+    snd_seq_event_t *ev;
+    long count;
+    char buf[1024];
+    Data_Get_Struct(self, snd_midi_event_t *, dev);
+    Data_Get_Struct(event, snd_seq_event_t, ev);
+    count = snd_midi_event_decode(*dev, (unsigned char *)&buf, 1024, ev);
+    if (count >= 0) {
+	return rb_str_new((const char *)&buf, count);
+    }
+    else {
+	return Qnil;
+    }
+}
+
+static VALUE
+midi_event_reset_decode(VALUE self)
+{
+    snd_midi_event_t **dev;
+    Data_Get_Struct(self, snd_midi_event_t *, dev);
+    snd_midi_event_reset_decode(*dev);
+    return Qnil;
+}
+
+/*  ___       _ _    */
+/* |_ _|_ __ (_) |_  */
+/*  | || '_ \| | __| */
+/*  | || | | | | |_  */
+/* |___|_| |_|_|\__| */
+
 void
 Init__asound(void)
 {
@@ -627,6 +778,13 @@ Init__asound(void)
     rb_define_method(c_event, "source", ev_get_source, 0);
     rb_define_method(c_event, "dest", ev_get_dest, 0);
     rb_define_method(c_event, "set_dest", ev_set_dest, 2);
+    rb_define_method(c_event, "tick_time", ev_tick_time, 0);
+    rb_define_method(c_event, "tick_time=", ev_set_tick_time, 1);
+    rb_define_method(c_event, "_channel", ev_channel, 0);
+    rb_define_method(c_event, "note", ev_note, 0);
+    rb_define_method(c_event, "velocity", ev_velocity, 0);
+    rb_define_method(c_event, "param", ev_param, 0);
+    rb_define_method(c_event, "value", ev_value, 0);
 
     c_client_info = rb_define_class_under(m_seq, "ClientInfo", rb_cObject);
     rb_define_alloc_func(c_client_info, client_info_allocate);
@@ -644,4 +802,10 @@ Init__asound(void)
     rb_define_method(c_port_info, "capability", port_info_get_capability, 0);
     rb_define_method(c_port_info, "type", port_info_get_type, 0);
     rb_define_method(c_port_info, "copy_from", port_info_copy_from, 1);
+
+    c_midi_event = rb_define_class_under(m_snd, "MidiEvent", rb_cObject);
+    rb_define_alloc_func(c_midi_event, midi_event_allocate);
+    rb_define_method(c_midi_event, "encode", midi_event_encode, 2);
+    rb_define_method(c_midi_event, "decode", midi_event_decode, 1);
+    rb_define_method(c_midi_event, "reset_decode", midi_event_reset_decode, 0);
 }

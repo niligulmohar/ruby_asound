@@ -119,24 +119,41 @@ module Snd::Seq
     def source_ids
       "[#{source[0]}:#{source[1]}]"
     end
+    def channel
+      _channel + 1
+    end
+    def note_name
+      n = note
+      %w[C C# D D# E F F# G G# A A# B][n%12] + (n/12).floor.to_s
+    end
+    def channel_s
+      "C:%02d" % channel
+    end
     def to_s
-      if sysex?
-        'System exclusive'
-      elsif noteon?
-        'Note on'
-      elsif noteoff?
-        'Note off'
-      elsif keypress?
-        'Key aftertouch'
-      elsif controller?
-        'Continuous controller'
-      elsif pgmchange?
-        'Program change'
-      elsif chanpress?
-        'Channel aftertouch'
-      elsif pitchbend?
-        'Pitch bend'
-      end
+      type = (if sysex?
+                "System exclusive:#{variable_data.hexdump}"
+              elsif noteon?
+                "#{channel_s} Note #{note_name} " + (if velocity > 0
+                                                       "on V:#{velocity}"
+                                                     else
+                                                       "off"
+                                                     end)
+              elsif noteoff?
+                "#{channel_s} Note #{note_name} off V:#{velocity}"
+              elsif keypress?
+                "#{channel_s} Key aftertouch"
+              elsif controller?
+                "#{channel_s} Continuous controller #{param}: #{value}"
+              elsif pgmchange?
+                "#{channel_s} Program change #{value}"
+              elsif chanpress?
+                "#{channel_s} Channel aftertouch"
+              elsif pitchbend?
+                "#{channel_s} Pitch bend #{value}"
+              else
+                "Unknown"
+              end)
+      "%8d #{type}" % tick_time
     end
   end
 
