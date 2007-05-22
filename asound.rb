@@ -100,6 +100,9 @@ module Snd::Seq
     def_type_checks :sysex, :clock, :noteon, :noteoff, :keypress, :controller
     def_type_checks :pgmchange, :chanpress, :pitchbend
 
+    def identity_request?
+      sysex? and variable_data == "\xf0\x7e\x7f\x06\x01\xf7"
+    end
     def identity_response?
       sysex? and variable_data =~ /^\xf0\x7e.\x06\x02.........\xf7$/
     end
@@ -147,7 +150,7 @@ module Snd::Seq
               elsif pgmchange?
                 "#{channel_s} Program change #{value}"
               elsif chanpress?
-                "#{channel_s} Channel aftertouch"
+                "#{channel_s} Channel aftertouch: #{value}"
               elsif pitchbend?
                 "#{channel_s} Pitch bend #{value}"
               else
